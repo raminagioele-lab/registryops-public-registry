@@ -1,0 +1,42 @@
+name: Registry Integrity Check
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Fail on forbidden files (.DS_Store, AppleDouble)
+        run: |
+          if find . -name ".DS_Store" -o -name "._*" | grep -q .; then
+            echo "Forbidden macOS metadata files found (.DS_Store / ._*)."
+            find . -name ".DS_Store" -o -name "._*" -print
+            exit 1
+          fi
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Verify registry integrity
+        run: |
+          python3 tools/verify_integrity.py
+
+      - name: Ensure current/ exists (public mirror requirement)
+        run: |
+          if [ -d "registry/public/current" ]; then
+            echo "Found registry/public/current"
+          elif [ -d "public/current" ]; then
+            echo "Found public/current"
+          else
+            echo "Missing current/ directory (expected registry/public/current or public/current)."
+            exit 1
+          fi
